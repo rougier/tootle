@@ -112,7 +112,7 @@ read-only mastodon client can be written with 300 lines of emacs lisp.
 
 **Note** I've been using the free version of Claude which is quite
 limited in what you can ask daily. This forces you to write your own
-code and only to use Claude or DepSeek for when you're really
+code and only to use Claude or DeepSeek for when you're really
 stuck. The state of code is now mostly mine and only the async http
 part remains mostly unchanged
 
@@ -121,5 +121,5 @@ myself (but maybe the documentation since these LLM are pretty damn
 good at writing it) because it is the only way to really get a sense
 of your code. The small time saved during early development (1 day)
 has been mostly lost in later maintenance tasks (1 month). If I had
-started from scratch, I think I would have been much faster.
+started from scratch, I think it would have been much faster.
 
