@@ -517,6 +517,15 @@ FACE defaults to `link'."
       (let ((author (cdr (assoc "account" effective))))
         (tootle--toot-header-button author (cdr (assoc "url" effective)) '(bold link))))))
 
+(defun tootle--toot-header-replies (toot)
+  "Return the reply count label for TOOT, or nil
+This is Mastodon's `replies_count', the number of direct replies.  For
+a boost, it is the count of the boosted toot."
+  (let* ((effective (or (cdr (assoc "reblog" toot)) toot))
+         (count (cdr (assoc "replies_count" effective))))
+    (when (and (integerp count) (> count 0))
+        (format "[%d] " count))))
+
 (defun tootle--toot-header-date (toot)
   "Return the formatted creation date of TOOT, or an empty string."
   (if-let* ((timestamp (tootle--toot-timestamp toot)))
@@ -534,12 +543,16 @@ column width."
                        ;; display space.
                        " "))
          (date (tootle--toot-header-date toot))
+         (replies (or (tootle--toot-header-replies toot) ""))
          (target (max (1+ (string-width left))
-                      (- (tootle--get-width) (string-width date)))))
+                      (- (tootle--get-width)
+                         (string-width replies)
+                         (string-width date)))))
     (concat left
             (propertize " " 'display `(space :align-to ,target)
                             'keymap nil
                             'follow-link nil)
+            (propertize replies 'face 'shadow)
             (propertize date 'face 'default)
             "\n")))
 
