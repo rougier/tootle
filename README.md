@@ -87,7 +87,6 @@ instead, paging as needed (mastodon API hard limit is 40 / pages).
 - No media display (obsiously)
 - No poll interaction
 - No content warning handling
-- No context navigation (yet)
 
 ## License
 
