@@ -1001,6 +1001,84 @@ position, or nil if there is none."
   (outline-minor-mode 1)
   (hl-line-mode 1))
 
+(defvar tootle-thread-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") #'kill-current-buffer)
+    (define-key map (kbd "g") #'tootle-thread-refresh)
+    map)
+  "Keymap for `tootle-thread-mode'.
+Inherits from `tootle-mode-map'.")
+
+(define-derived-mode tootle-thread-mode tootle-mode "Tootle-Thread"
+  "Major mode for a tootle thread buffer."
+  (setq-local revert-buffer-function
+              (lambda (&rest _) (tootle-thread-refresh))))
+
+(defun tootle--thread-render (toot context)
+  "Replace the buffer content with the thread of TOOT.
+TOOT is the parsed `context' reply: its ancestors come first
+(oldest first), then TOOT, then its descendants."
+  (let ((inhibit-read-only t)
+        (ancestors (cdr (assoc "ancestors" context)))
+        (descendants (cdr (assoc "descendants" context)))
+        focus)
+    (erase-buffer)
+    (tootle--header-update)
+    (goto-char (point-max))
+    (tootle--toot-insert ancestors)
+    (setq focus (point))
+    (tootle--toot-insert (list toot))
+    (tootle--toot-insert descendants)
+    (tootle--fetch-set :status 'success)
+    (tootle--fetch-set :time (current-time))
+    (tootle--fetch-set :count (+ (length ancestors) 1 (length descendants)))
+    (tootle--header-update)
+    (goto-char focus)
+    (message "Thread: %d toot(s)." (tootle--fetch-get :count))))
+
+(defun tootle--thread-load (&optional id)
+  "Fetch the thread of toot ID."
+  (if (eq (tootle--fetch-get :status) 'in-progress)
+      (message "A fetch is already in progress.")
+    (let ((id (or id (tootle--view-get :thread))))
+      (tootle--fetch-set :status 'in-progress)
+      (tootle--header-update)
+      (message "Fetching thread...")
+      (tootle--api-fetch
+       (format "/api/v1/statuses/%s" id)
+       (lambda (status)
+         (tootle--api-fetch
+          (format "/api/v1/statuses/%s/context" id)
+          (lambda (context) (tootle--thread-render status context))
+          #'tootle--api-fetch-error))
+       #'tootle--api-fetch-error))))
+
+(defun tootle-thread-refresh ()
+  "Re-fetch the thread shown in the current buffer."
+  (interactive)
+  (unless (tootle--view-get :thread)
+    (user-error "Not in a thread buffer"))
+  (tootle--thread-load))
+
+(defun tootle-thread (&optional pos)
+  "Show the thread of the toot at POS (default point) in a new buffer."
+  (interactive)
+  (let* ((overlay (tootle--toot-overlay-at-point pos))
+         (id (and overlay (overlay-get overlay 'toot-effective-id)))
+         (account (tootle--view-get :account)))
+    (unless id (user-error "No toot at point"))
+    (let* ((name (format "*tootle-thread: %s*" id))
+           (buf (get-buffer name)))
+      (if (buffer-live-p buf)
+          (switch-to-buffer buf)
+        (setq buf (get-buffer-create name))
+        (switch-to-buffer buf)
+        (tootle-thread-mode)
+        (tootle--view-set :thread id)
+        (tootle--view-set :account account)
+        (tootle--header-update)
+        (tootle--thread-load)))))
+
 ;;;###autoload
 (defun tootle (&optional count)
   "Show the Mastodon timeline buffer, creating it if needed.
