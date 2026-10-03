@@ -236,6 +236,12 @@ the temporary response buffer themselves."
      (funcall on-reply data))
    on-error))
 
+(defun tootle--api-fetch-error (msg)
+  "Echo MSG and mark the current buffer's fetch as failed."
+  (message "%s" msg)
+  (tootle--fetch-set :status 'error)
+  (tootle--header-update))
+
 (defun tootle--api-fetch-credentials (on-reply on-error)
   "Fetch the account `:token' authenticates as."
   (tootle--api-fetch
@@ -327,11 +333,9 @@ that and does nothing further."
                                (funcall finish))
                            (funcall finish)))))))
                  (lambda (msg)
-                   (message "%s" msg)
-                   (tootle--fetch-set :status 'error)
+                   (tootle--api-fetch-error msg)
                    (funcall finish)))))))
         (funcall fetch-page)))))
-
 
 (defun tootle--json-id (json)
   "Return toot's id as an integer, or nil from JSON description"
