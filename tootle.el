@@ -41,12 +41,14 @@
 ;;   d      delete the toot at point
 ;;   D      delete every read, visible toot
 ;;   s      filter the timeline live as you type; RET keeps it, C-g cancels
+;;   t      Open thread at point
 ;;   h      hide every currently-read toot
 ;;   SPC    clear the active filter (text search and/or hidden read toots)
 ;;   q      bury the buffer
 ;;   TAB    toggle the body of the toot at point
 ;;   S-TAB  fold or unfold every visible toot together
-;;   RET    open the link or toot at point
+;;   RET    open the link or the thread at point
+;;   g      (in a thread buffer) refresh the thread
 ;;
 ;; With a numeric prefix argument, `M-x tootle' fetches that
 ;; many toots on first load, paging as needed.
@@ -125,7 +127,8 @@
   '(:account nil  ;; Display name for the account
     :header  nil  ;; Marker for the header lines
     :filter  nil  ;; Current filter string or nil
-    :hidden  nil) ;; Global hidden state (read toots)
+    :hidden  nil  ;; Global hidden state (read toots)
+    :thread  nil) ;; Id of the toot whose thread is shown
   "View state for the current buffer.")
 
 (defun tootle--view-set (key value)
@@ -371,10 +374,14 @@ TOOTS are json format."
                                (or (tootle--fetch-get :count) 0)))))
          (unread (format "%d unread" (or (tootle-count-unread) 0)))
          (total  (format "%d total" (or (length (tootle--toot-overlays)) 0)))
-         (info (if time
-                   (format " (%s, %s, %s)" new unread total)
-                 ""))
-         (line-1 (propertize (format "%s — Home timeline" account)
+         (thread (tootle--view-get :thread))
+         (info (cond ((not time) "")
+                     (thread (format " (%s, %s)" unread total))
+                     (t (format " (%s, %s, %s)" new unread total))))
+         (line-1 (propertize (format "%s — %s" account
+                                     (if thread
+                                         "Thread"
+                                       "Home timeline"))
                              'face 'bold 'tootle-header t))
          (line-2 (propertize (format "Last update: %s%s" update info)
                              'face 'shadow 'tootle-header t)))
@@ -629,6 +636,7 @@ blocks are concatenated in order."
     (dolist (toot toots)
       (let* ((effective (or (cdr (assoc "reblog" toot)) toot))
              (id (cdr (assoc "id" toot)))
+             (effective-id (cdr (assoc "id" effective)))
              (url (cdr (assoc "url" effective)))
              (visibility (cdr (assoc "visibility" effective)))
              (private (and visibility (member visibility '("private" "direct"))))
@@ -645,6 +653,7 @@ blocks are concatenated in order."
             (overlay-put overlay 'evaporate t)
             (overlay-put overlay 'tootle-toot t)
             (overlay-put overlay 'toot-id id)
+            (overlay-put overlay 'toot-effective-id effective-id)
             (overlay-put overlay 'toot-date (tootle--toot-timestamp toot))
             (overlay-put overlay 'private private)
             (overlay-put overlay 'priority 10)
@@ -974,10 +983,12 @@ position, or nil if there is none."
     (define-key map (kbd "b")         #'tootle-browse)
     (define-key map (kbd "q")         #'bury-buffer)
     (define-key map (kbd "d")         #'tootle-delete)
+    (define-key map (kbd "t")         #'tootle-thread)
     (define-key map (kbd "D")         #'tootle-delete-all)
     (define-key map (kbd "f")         #'tootle-filter-set)
     (define-key map (kbd "SPC")       #'tootle-filter-clear)
     (define-key map (kbd "h")         #'tootle-filter-toggle)
+    (define-key map (kbd "RET")       #'tootle-thread)
     (define-key map (kbd "TAB")       #'outline-toggle-children)
     (define-key map (kbd "<backtab>") #'tootle-toggle-all)
     map)
