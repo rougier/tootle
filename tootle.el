@@ -40,7 +40,7 @@
 ;;   b      browse the toot at point
 ;;   d      delete the toot at point
 ;;   D      delete every read, visible toot
-;;   s      filter the timeline live as you type; RET keeps it, C-g cancels
+;;   f      filter the timeline live as you type; RET keeps it, C-g cancels
 ;;   t      Open thread at point
 ;;   h      hide every currently-read toot
 ;;   SPC    clear the active filter (text search and/or hidden read toots)
