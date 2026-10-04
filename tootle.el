@@ -184,7 +184,11 @@ in the response buffer.  A request that doesn't settle within
       (cancel-timer (tootle--http-state-timer state)))
     (if error
         (funcall (tootle--http-state-on-error state) error)
-      (funcall (tootle--http-state-on-success state) data))))
+      (condition-case e
+          (funcall (tootle--http-state-on-success state) data)
+        (error
+         (funcall (tootle--http-state-on-error state)
+                  (format "Internal error: %s" (error-message-string e))))))))
 
 (defun tootle--http-callback (status state)
   "The `url-retrieve' callback for `tootle--http-request'.
@@ -203,15 +207,17 @@ STATUS is the status plist, STATE the request state."
            state nil (format "HTTP %s" url-http-response-status)))
          (t
           (goto-char (or url-http-end-of-headers (point-min)))
-          (condition-case e
-              (let ((json-object-type 'alist)
-                    (json-key-type 'string)
-                    (json-array-type 'list))
-                (tootle--http-finish state (json-read) nil))
-            (error (tootle--http-finish
-                    state nil
-                    (format "Bad JSON: %s"
-                            (error-message-string e)))))))
+          (let ((result (condition-case e
+                            (let ((json-object-type 'alist)
+                                  (json-key-type 'string)
+                                  (json-array-type 'list))
+                              (list :ok (json-read)))
+                          (error (list :error
+                                       (format "Bad JSON: %s"
+                                               (error-message-string e)))))))
+            (if (eq (car result) :ok)
+                (tootle--http-finish state (cadr result) nil)
+              (tootle--http-finish state nil (cadr result))))))
       (kill-buffer response-buffer))))
 
 (defun tootle--api-fetch (path on-success on-error)
