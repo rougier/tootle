@@ -155,11 +155,11 @@ ON-SUCCESS is called with the parsed JSON value.  ON-ERROR is called
 with a human-readable message string.  Exactly one of them is called,
 in the response buffer.  A request that doesn't settle within
 `:timeout' seconds is reported as an error."
-  (if (not (plist-get tootle-config :token))
+  (if (not (tootle-config-get :token))
       (funcall on-error "`:token' is not set")
     (let* ((url-request-extra-headers
             (list (cons "Authorization"
-                        (concat "Bearer " (plist-get tootle-config :token)))
+                        (concat "Bearer " (tootle-config-get :token)))
                   (cons "Accept" "application/json; charset=utf-8")))
            (state (make-tootle--http-state :on-success on-success
                                            :on-error on-error))
@@ -170,7 +170,7 @@ in the response buffer.  A request that doesn't settle within
                           nil t t)))
       (setf (tootle--http-state-timer state)
             (run-at-time
-             (plist-get tootle-config :timeout) nil
+             (tootle-config-get :timeout) nil
              (lambda ()
                (tootle--http-finish state nil "Request timed out")
                (when (buffer-live-p request-buffer)
@@ -232,7 +232,7 @@ current again (if it's still live), so callers never have to handle
 the temporary response buffer themselves."
   (let ((buf (current-buffer)))
     (tootle--http-request
-     (concat (plist-get tootle-config :instance) path)
+     (concat (tootle-config-get :instance) path)
      (lambda (data)
        (when (buffer-live-p buf)
          (with-current-buffer buf (funcall on-success data))))
@@ -265,7 +265,7 @@ the temporary response buffer themselves."
                                 (cdr (assoc "username" data))
                                 "")))
                   (tootle--text-sanitize
-                   (format "%s/@%s" (plist-get tootle-config :instance) acct))))))
+                   (format "%s/@%s" (tootle-config-get :instance) acct))))))
    on-error))
 
 (defun tootle--timeline-load (&optional since-id count on-done)
@@ -297,7 +297,7 @@ that and does nothing further."
     (tootle--fetch-set :status 'in-progress)
     (tootle--header-update)
     (let* ((buf (current-buffer))
-           (count (unless since-id (or count (plist-get tootle-config :limit))))
+           (count (unless since-id (or count (tootle-config-get :limit))))
            (cursor (copy-marker (if since-id
                                      (or (tootle--view-get :header) (point-min))
                                    (point-max))
@@ -313,8 +313,8 @@ that and does nothing further."
            (fetch-page
             (lambda ()
               (let* ((limit (if count
-                                (min (plist-get tootle-config :limit) (- count total))
-                              (plist-get tootle-config :limit)))
+                                (min (tootle-config-get :limit) (- count total))
+                              (tootle-config-get :limit)))
                      (query (concat
                              (format "limit=%d" limit)
                              (when since-id (format "&since_id=%d" since-id))
@@ -373,7 +373,7 @@ TOOTS are json format."
 
 (defun tootle--get-width ()
   "Return the column width to wrap or align to."
-  (or (plist-get tootle-config :width)
+  (or (tootle-config-get :width)
       (when-let* ((win (get-buffer-window (current-buffer) 0)))
         (- (window-body-width win) 2))
       (- (frame-width) 2)))
@@ -959,7 +959,7 @@ session."
               (url (overlay-get overlay 'toot-url)))
     (if (not (string-empty-p url))
         (browse-url (format "%s/search?q=%s"
-                            (plist-get tootle-config :instance)
+                            (tootle-config-get :instance)
                             (url-hexify-string url)))
       (user-error "No URL for this toot"))))
 
@@ -1155,7 +1155,7 @@ the prefix. On subsequent calls, just show the existing buffer; use
   (let ((buf (get-buffer "*tootle*")))
     (if (buffer-live-p buf)
         (switch-to-buffer buf)
-      (let ((count (if (integerp count) count (plist-get tootle-config :initial))))
+      (let ((count (if (integerp count) count (tootle-config-get :initial))))
         (setq buf (get-buffer-create "*tootle*"))
         (switch-to-buffer buf)
         (tootle-mode)
