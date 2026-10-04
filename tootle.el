@@ -68,6 +68,8 @@
 (require 'json)
 (require 'outline)
 (require 'url-http)
+(require 'cl-lib)
+(require 'subr-x)
 (require 'browse-url)
 (require 'parse-time)
 
