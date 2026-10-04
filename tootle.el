@@ -463,20 +463,22 @@ CRLF line endings become LF; lone CRs are removed."
 
 (defun tootle--text-shorten-url (url)
   "Return a display form of URL: host + ellipsis + last segment."
-  (let ((max-last (- (tootle--get-width) 4)))
+  (let ((max-last (max 1 (- (tootle--get-width) 4)))
+        (bare (replace-regexp-in-string "\\`https?://" "" url)))
     (if (string-match
-         "\\`\\(?:https?://\\)?\\([^/]+\\)\\(/.*?\\)?/\\([^/]+\\)/?\\'"
-         url)
-        (let* ((host (match-string 1 url))
-               (last (match-string 3 url))
+         "\\`\\([^/]+\\)\\(/.*?\\)?/\\([^/]+\\)/?\\'"
+         bare)
+        (let* ((host (match-string 1 bare))
+               (last (match-string 3 bare))
                (last (if (> (length last) max-last)
                          (concat (substring last 0 (1- max-last)) "…")
                        last)))
           (concat host "…" last))
       url)))
 
-(defun tootle--toot-html-to-text (html)
-  "Render HTML to plain text with `shr', stripping shortcodes and emoji."
+(defun tootle--toot-html-to-text (html &optional emojis)
+  "Render HTML to plain text with `shr', stripping shortcodes and emoji.
+EMOJIS is the list of custom emoji shortcodes of the toot."
   (let ((width (tootle--get-width)))
     (with-temp-buffer
       (set-buffer-multibyte t)
@@ -506,7 +508,7 @@ FACE defaults to `link'."
       (define-key map [mouse-1] (lambda () (interactive) (browse-url url)))
       (define-key map [mouse-2] (lambda () (interactive) (browse-url url)))
       (define-key map (kbd "RET") (lambda () (interactive) (browse-url url)))
-      (propertize (tootle--text-shorten-url label)
+      (propertize (copy-sequence label)
                   'face (or face 'link)
                   'follow-link t
                   'help-echo url
@@ -595,7 +597,8 @@ column width."
       (let ((prefix (format "[%d]: " number)))
         (concat
          prefix
-         (propertize (tootle--text-button url url) 'media-url url)
+         (propertize (tootle--text-button (tootle--text-shorten-url url) url)
+                     'media-url url)
          "\n"
          (when (and (stringp description)
                     (not (string-empty-p description)))
@@ -630,7 +633,8 @@ blocks are concatenated in order."
   "Return the full rendered string for TOOT."
   (let* ((effective (or (cdr (assoc "reblog" toot)) toot))
          (content (tootle--toot-html-to-text
-                   (or (cdr (assoc "content" effective)) "")))
+                   (or (cdr (assoc "content" effective)) "")
+                   (tootle--json-emojis effective)))
          (media (tootle--toot-media effective)))
     (concat (tootle--toot-header toot)
             (propertize (make-string (tootle--get-width) ?-) 'face 'default)
