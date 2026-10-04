@@ -285,10 +285,12 @@ is inserted right after the previous one via a self-advancing marker,
 and `:newest' is set from the very first (newest) page.
 
 Loading happens asynchronously, so this function returns immediately.
-If ON-DONE is given, it is called -- with the current buffer already
-current -- with the total number of toots loaded once every page has
-arrived, a request has failed, or the buffer has been killed in the
-meantime.  If a load is already running in this buffer, this reports
+If ON-DONE is given, it is called -- with the buffer already current --
+with the total number of toots loaded once every page has arrived or a
+request has failed.  After a failure the fetch `:status' is `error' (the
+message has already been echoed), so ON-DONE should check it before
+reporting success.  It is not called if the buffer has been killed.
+If a load is already running in this buffer, this reports
 that and does nothing further."
   (if (eq (tootle--fetch-get :status) 'in-progress)
       (message "A fetch is already in progress.")
@@ -422,8 +424,11 @@ TOOTS are json format."
       (goto-char (+ (tootle--view-get :header) offset)))))
 
 (defun tootle--text-sanitize (string &optional emojis)
-  "Return trimmed STRING without carriage returns, emoji characters and
-shortcodes."
+  "Return STRING without carriage returns, emoji characters and shortcodes.
+EMOJIS is the list of custom emoji shortcode names (without colons)
+declared by the toot or account the text comes from, see
+`tootle--json-emojis'.  Only those shortcodes are removed, so ordinary
+text such as \"10:30:45\" is left alone.  The result is trimmed."
   (tootle--text-strip-shortcodes
    (tootle--text-strip-emoji
     (tootle--text-strip-cr string))
