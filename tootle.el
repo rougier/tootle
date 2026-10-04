@@ -852,16 +852,11 @@ both visible and read."
               (overlay-get overlay 'tootle-toot))
             (overlays-at (or pos (point)))))
 
-(defun tootle--toot-id-at-point (&optional pos)
-  "Return the toot id at POS (default point), or nil."
-  (when-let* ((overlay (tootle--toot-overlay-at-point pos)))
-    (overlay-get overlay 'toot-id)))
-
 (defun tootle-mark-unread (&optional pos)
   "Mark the toot at POS (default point) unread, then move point to
 the next read visible toot if there is one."
   (interactive)
-  (when-let* ((overlay (tootle--toot-overlay-at-point))
+  (when-let* ((overlay (tootle--toot-overlay-at-point pos))
               (id (overlay-get overlay 'toot-id)))
     (overlay-put overlay 'read nil)
     (tootle--toot-overlay-update overlay)
@@ -880,7 +875,7 @@ the next read visible toot if there is one."
   "Mark the toot at POS (default point) read, fold it, then move point to
 the next unread visible toot if there is one."
   (interactive)
-  (when-let* ((overlay (tootle--toot-overlay-at-point))
+  (when-let* ((overlay (tootle--toot-overlay-at-point pos))
               (id (overlay-get overlay 'toot-id)))
     (overlay-put overlay 'read t)
     (tootle--toot-overlay-update overlay)
