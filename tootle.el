@@ -104,11 +104,11 @@
   :group 'tootle)
 
 (defun tootle-config-set (key value)
-  "Set KEY to VALUE in the 'tootle-config' variable."
+  "Set KEY to VALUE in the `tootle-config' variable."
   (setq tootle-config (plist-put (copy-sequence tootle-config) key value)))
 
 (defun tootle-config-get (key)
-  "Get KEY from the 'tootle-config' variable."
+  "Get KEY from the `tootle-config' variable."
   (plist-get tootle-config key))
 
 (defvar-local tootle--fetch
@@ -119,11 +119,11 @@
   "State of the last fetch for the current buffer.")
 
 (defun tootle--fetch-set (key value)
-  "Set KEY to VALUE in the 'tootle--fetch' variable."
+  "Set KEY to VALUE in the `tootle--fetch' variable."
   (setq tootle--fetch (plist-put (copy-sequence tootle--fetch) key value)))
 
 (defun tootle--fetch-get (key)
-  "Get KEY from the 'tootle--fetch' variable."
+  "Get KEY from the `tootle--fetch' variable."
   (plist-get tootle--fetch key))
 
 (defvar-local tootle--view
@@ -135,11 +135,11 @@
   "View state for the current buffer.")
 
 (defun tootle--view-set (key value)
-  "Set KEY to VALUE in the 'tootle--view' variable."
+  "Set KEY to VALUE in the `tootle--view' variable."
   (setq tootle--view (plist-put (copy-sequence tootle--view) key value)))
 
 (defun tootle--view-get (key)
-  "Get KEY from the 'tootle--view' variable."
+  "Get KEY from the `tootle--view' variable."
   (plist-get tootle--view key))
 
 (cl-defstruct tootle--http-state
