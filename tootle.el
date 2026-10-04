@@ -393,8 +393,11 @@ TOOTS are json format."
          (unread (format "%d unread" (or (tootle-count-unread) 0)))
          (total  (format "%d total" (or (length (tootle--toot-overlays)) 0)))
          (thread (tootle--view-get :thread))
-         (info (cond ((not time) "")
-                     (thread (format " (%s, %s)" unread total))
+         (failed (eq status 'error))
+         (info (cond ((not time) (if failed " (failed)" ""))
+                     (thread (if failed
+                                 (format " (failed, %s, %s)" unread total)
+                               (format " (%s, %s)" unread total)))
                      (t (format " (%s, %s, %s)" new unread total))))
          (line-1 (propertize (format "%s — %s" account
                                      (if thread
@@ -716,13 +719,16 @@ blocks are concatenated in order."
   (tootle--timeline-load
    (tootle--fetch-get :newest) nil
    (lambda (count)
-     (tootle--fetch-set :time (current-time))
-     (tootle--fetch-set :count count)
-     (tootle--header-update)
-     (if (zerop count)
-         (message "No new toots.")
-       (goto-char (or (tootle--view-get :header) (point-min)))
-       (message "Fetched %d new toot%s." count (if (= 1 count) "" "s"))))))
+     (if (eq (tootle--fetch-get :status) 'error)
+       (tootle--header-update)
+       (progn
+         (tootle--fetch-set :time (current-time))
+         (tootle--fetch-set :count count)
+         (tootle--header-update)
+         (if (zerop count)
+             (message "No new toots.")
+           (goto-char (or (tootle--view-get :header) (point-min)))
+           (message "Fetched %d new toot%s." count (if (= 1 count) "" "s"))))))))
 
 (defun tootle--update-mode-line-process ()
   "Show \"[filtered]\" in the mode-line, right after the mode name, while
@@ -1146,14 +1152,16 @@ the prefix. On subsequent calls, just show the existing buffer; use
         (tootle--timeline-load
          nil count
          (lambda (n)
-           (tootle--fetch-set :time (current-time))
-           (tootle--fetch-set :count n)
-           (tootle--header-update)
-           (when (zerop n)
-             (message "No new toots."))
-           (goto-char (or (tootle--view-get :header) (point-min)))
-           (let ((n (length (tootle--toot-overlays))))
-             (message "Fetched %d toot%s." n (if (= 1 n) "" "s")))))))))
+           (let ((failed (eq (tootle--fetch-get :status) 'error)))
+             (unless failed
+               (tootle--fetch-set :time (current-time))
+               (tootle--fetch-set :count n))
+             (tootle--header-update)
+             (goto-char (or (tootle--view-get :header) (point-min)))
+             (unless failed
+               (if (zerop n)
+                   (message "No toots.")
+                 (message "Fetched %d toot%s." n (if (= 1 n) "" "s")))))))))))
 
 (provide 'tootle)
 ;;; tootle.el ends here
