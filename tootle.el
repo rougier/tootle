@@ -262,7 +262,7 @@ the temporary response buffer themselves."
                 (let ((acct (or (cdr (assoc "acct" data))
                                 (cdr (assoc "username" data))
                                 "")))
-                  (tootle--text-strip-emoji
+                  (tootle--text-sanitize
                    (format "%s/@%s" (plist-get tootle-config :instance) acct))))))
    on-error))
 
@@ -352,6 +352,13 @@ that and does nothing further."
   (when-let* ((id (cdr (assoc "id" json))))
     (string-to-number id)))
 
+(defun tootle--json-emojis (json)
+  "Return the custom emoji shortcode names declared in JSON (a toot or account)."
+  (delq nil (mapcar (lambda (emoji)
+                      (let ((code (cdr (assoc "shortcode" emoji))))
+                        (and (stringp code) code)))
+                    (cdr (assoc "emojis" json)))))
+
 (defun tootle--json-sort (toots)
   "Return TOOTS sorted by id, newest first.
 TOOTS are json format."
@@ -407,24 +414,32 @@ TOOTS are json format."
       (if marker
           (set-marker marker (point))
         (tootle--view-set :header (copy-marker (point) nil))))
-    (goto-char pos)))
+    (when offset
+      (goto-char (+ (tootle--view-get :header) offset)))))
 
-(defun tootle--text-sanitize (string)
-  "Remove Mastodon-style custom emoji shortcodes, carriage returns and
-emoji characters from STRING."
-   (tootle--text-strip-cr
-    (tootle--text-strip-shortcodes
-     (tootle--text-strip-emoji string))))
+(defun tootle--text-sanitize (string &optional emojis)
+  "Return trimmed STRING without carriage returns, emoji characters and
+shortcodes."
+  (tootle--text-strip-shortcodes
+   (tootle--text-strip-emoji
+    (tootle--text-strip-cr string))
+   emojis))
+
+(defun tootle--text-strip-shortcodes (string &optional emojis)
+  "Remove the custom emoji shortcodes named in EMOJIS from STRING.
+EMOJIS is a list of shortcode names without colons.  The result is
+trimmed."
+  (string-trim
+   (if emojis
+       (replace-regexp-in-string
+        (concat "[ \t]*:" (regexp-opt emojis t) ":[ \t]*")
+        " " string t t)
+     string)))
 
 (defun tootle--text-strip-cr (string)
   "Remove carriage returns from STRING.
 CRLF line endings become LF; lone CRs are removed."
   (replace-regexp-in-string "\r" "" string))
-
-(defun tootle--text-strip-shortcodes (string)
-  "Remove Mastodon-style custom emoji shortcodes from STRING."
-  (string-trim
-   (replace-regexp-in-string "[ \t]*:[A-Za-z0-9_+-]+:[ \t]*" " " string)))
 
 (defun tootle--text-strip-emoji (string)
   "Remove emoji characters from STRING, preserving text properties."
@@ -469,9 +484,9 @@ CRLF line endings become LF; lone CRs are removed."
             (shr-width width)
             (shr-use-fonts nil)
             (shr-use-colors nil))
-        (insert (replace-regexp-in-string ":[A-Za-z0-9_+-]+:" "" html))
+        (insert (tootle--text-sanitize html emojis))
         (shr-render-region (point-min) (point-max))
-        (let ((stripped (tootle--text-strip-emoji (buffer-string))))
+        (let ((stripped (tootle--text-sanitize (buffer-string))))
           (erase-buffer)
           (insert stripped)
           (goto-char (point-min))
@@ -510,16 +525,13 @@ FACE defaults to `link'."
 
 (defun tootle--toot-header-button (account url face)
   "Return a clickable label for ACCOUNT, linked to URL and face FACE."
-  (let* ((name (or (cdr (assoc "display_name" account)) ""))
+  (let* ((name (tootle--text-sanitize
+                (or (cdr (assoc "display_name" account)) "")
+                (tootle--json-emojis account)))
          (acct (or (cdr (assoc "acct" account)) "")))
-    (tootle--text-button
-     (string-trim
-      (tootle--text-strip-emoji
-       (tootle--text-strip-shortcodes
-        (if (string-empty-p name)
-            (concat "@" acct)
-          name))))
-     url face)))
+    ;; Fall back to the handle when nothing is left once emoji are removed.
+    (tootle--text-button (if (string-empty-p name) (concat "@" acct) name)
+                         url face)))
 
 (defun tootle--toot-header-authors (toot)
   "Return the author portion of the header line for TOOT."
@@ -589,8 +601,7 @@ column width."
                     (not (string-empty-p description)))
            (let ((indent (make-string (length prefix) ?\s)))
              (concat indent
-                     (propertize (tootle--text-strip-cr
-                                  (tootle--text-strip-emoji description))
+                     (propertize (tootle--text-sanitize description)
                                  'face 'shadow
                                  'wrap-prefix indent
                                  'line-prefix indent)
