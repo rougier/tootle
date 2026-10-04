@@ -473,20 +473,37 @@ CRLF line endings become LF; lone CRs are removed."
       (setq i (1+ i)))
     result))
 
-(defun tootle--text-shorten-url (url)
-  "Return a display form of URL: host + ellipsis + last segment."
-  (let ((max-last (max 1 (- (tootle--get-width) 4)))
-        (bare (replace-regexp-in-string "\\`https?://" "" url)))
-    (if (string-match
-         "\\`\\([^/]+\\)\\(/.*?\\)?/\\([^/]+\\)/?\\'"
-         bare)
-        (let* ((host (match-string 1 bare))
-               (last (match-string 3 bare))
-               (last (if (> (length last) max-last)
-                         (concat (substring last 0 (1- max-last)) "…")
-                       last)))
-          (concat host "…" last))
-      url)))
+(defun tootle--text-shorten-url (url &optional brief)
+  "Return a display form of URL: host + ellipsis + last path segment.
+With BRIEF, return \"[scheme://host…]\" instead.  URL is returned
+unchanged when it has no path.
+
+The goal is to gave a human readable shortened url with essential
+information. This can be probably improved since I suspect it doesn't
+handle a few edge cases (urls can be really weird today)."
+  (save-match-data
+    (let* ((end (string-match (if (string-search "(" url)
+                                  "[.,;:!?'\"…»”’]*\\'"
+                                "[.,;:!?'\"…»”’)]*\\'")
+                              url))
+           (core (substring url 0 end))
+           (tail (substring url end)))
+      (if (not (string-match (concat "\\`\\(https?://\\)?"
+                                     "\\([^/:]+\\(?::[0-9]+\\)?\\)"
+                                     "\\(?:/.*?\\)?/\\([^/]+\\)/?\\'")
+                             core))
+          url
+        (concat
+         (apply #'propertize
+                (if brief
+                    (format "[%s%s…]" (or (match-string 1 core) "")
+                            (match-string 2 core))
+                  (concat (match-string 2 core) "…"
+                          (truncate-string-to-width
+                           (match-string 3 core)
+                           (max 1 (- (tootle--get-width) 4)) nil nil "…")))
+                (text-properties-at 0 url))
+         tail)))))
 
 (defun tootle--toot-html-to-text (html &optional emojis)
   "Render HTML to plain text with `shr', stripping shortcodes and emoji.
