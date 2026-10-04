@@ -69,6 +69,7 @@
 (require 'outline)
 (require 'url-http)
 (require 'browse-url)
+(require 'parse-time)
 
 ;; `url-http' binds these dynamically in the callback buffer; declaring
 ;; them here (with no value, exactly as `url-http' itself does) tells
@@ -405,19 +406,19 @@ TOOTS are json format."
 (defun tootle--text-sanitize (string)
   "Remove Mastodon-style custom emoji shortcodes, carriage returns and
 emoji characters from STRING."
-  (tootle--text-strip-shortcodes
-   (tootle--text-strip-emoji
-    (tootle--text-strip-cr string))))
-
-(defun tootle--text-strip-shortcodes (string)
-  "Remove Mastodon-style custom emoji shortcodes from STRING."
-  (string-trim
-   (replace-regexp-in-string "[ \t]*:[A-Za-z0-9_+-]+:[ \t]*" " " string)))
+   (tootle--text-strip-cr
+    (tootle--text-strip-shortcodes
+     (tootle--text-strip-emoji string))))
 
 (defun tootle--text-strip-cr (string)
   "Remove carriage returns from STRING.
 CRLF line endings become LF; lone CRs are removed."
   (replace-regexp-in-string "\r" "" string))
+
+(defun tootle--text-strip-shortcodes (string)
+  "Remove Mastodon-style custom emoji shortcodes from STRING."
+  (string-trim
+   (replace-regexp-in-string "[ \t]*:[A-Za-z0-9_+-]+:[ \t]*" " " string)))
 
 (defun tootle--text-strip-emoji (string)
   "Remove emoji characters from STRING, preserving text properties."
@@ -638,6 +639,7 @@ blocks are concatenated in order."
              (id (cdr (assoc "id" toot)))
              (effective-id (cdr (assoc "id" effective)))
              (url (cdr (assoc "url" effective)))
+             (timestamp (tootle--toot-timestamp toot))
              (visibility (cdr (assoc "visibility" effective)))
              (private (and visibility (member visibility '("private" "direct"))))
              (start (point)))
@@ -651,6 +653,7 @@ blocks are concatenated in order."
            'outline-level 1)
           (let ((overlay (make-overlay start end nil t nil)))
             (overlay-put overlay 'evaporate t)
+            (overlay-put overlay 'timestamp timestamp)
             (overlay-put overlay 'tootle-toot t)
             (overlay-put overlay 'toot-id id)
             (overlay-put overlay 'toot-effective-id effective-id)
