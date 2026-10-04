@@ -403,9 +403,11 @@ TOOTS are json format."
 
 (defun tootle--header-update ()
   "Insert or refresh the two header lines at the top of the buffer."
-  (let ((inhibit-read-only t)
-        (marker (tootle--view-get :header))
-        (pos (point)))
+  (let* ((inhibit-read-only t)
+         (marker (tootle--view-get :header))
+         (offset (when (and marker (marker-position marker)
+                            (>= (point) marker))
+                   (- (point) marker))))
     (save-excursion
       (when (and marker (marker-position marker))
         (delete-region (point-min) marker))
@@ -773,7 +775,7 @@ active before."
   (if filter
       (progn (tootle--view-set :filter (unless (string-empty-p filter) filter))
              (tootle--filter-update))
-    (let* ((buf (get-buffer "*tootle*"))
+    (let* ((buf (current-buffer))
            (previous (tootle--view-get :filter))
            (live-update
             (lambda ()
@@ -1061,7 +1063,7 @@ TOOT is the parsed `context' reply: its ancestors come first
     (tootle--header-update)
     (goto-char (point-max))
     (tootle--toot-insert ancestors)
-    (setq focus (point))
+    (setq focus (copy-marker (point)))
     (tootle--toot-insert (list toot))
     (tootle--toot-insert descendants)
     (tootle--fetch-set :status 'success)
@@ -1069,6 +1071,7 @@ TOOT is the parsed `context' reply: its ancestors come first
     (tootle--fetch-set :count (+ (length ancestors) 1 (length descendants)))
     (tootle--header-update)
     (goto-char focus)
+    (set-marker focus nil)
     (message "Thread: %d toot(s)." (tootle--fetch-get :count))))
 
 (defun tootle--thread-load (&optional id)
